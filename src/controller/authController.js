@@ -1,12 +1,15 @@
 import logger from "#config/logger.js";
+import { db } from "#config/database.js";
+import { eq } from "drizzle-orm";
 import { formatValidationError } from "#utils/format.js";
-import { signupSchema,signInSchema } from "#validations/auth.validations.js";
+import { signupSchema, signInSchema } from "#validations/auth.validations.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "#models/user.model.js";
 
+// ================= SIGN UP =================
 export const signUp = async (req, res, next) => {
   try {
-    // ================= VALIDATION =================
     const validationResult = signupSchema.safeParse(req.body);
 
     if (!validationResult.success) {
@@ -18,11 +21,15 @@ export const signUp = async (req, res, next) => {
     }
 
     let { name, email, role, password } = validationResult.data;
-
     email = email.toLowerCase().trim();
 
-    // ================= BUSINESS LOGIC =================
-    const existingUser = await userService.findByEmail(email);
+    // 🔹 Check if user already exists
+    const existingUserResult = await db
+      .select()
+      .from(User)
+      .where(eq(User.email, email))
+      .limit(1);
+    const existingUser = existingUserResult[0];
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -32,20 +39,30 @@ export const signUp = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await userService.create({
-      name,
-      email,
-      role,
-      password: hashedPassword,
-    });
+    // 🔹 Create user
+    const [user] = await db
+      .insert(User)
+      .values({
+        name,
+        email,
+        role,
+        password: hashedPassword,
+      })
+      .returning();
 
     logger.info(`User registered successfully: ${email}`);
+    const token=jwt.sign(
+      {id:user.id,email:user.email,password:user.password},
+      process.env.JWT_SECRET,
+      {expiresIn:'1d'}
+    );
 
-    // ================= RESPONSE =================
+    cookies.set(res,'token',token);
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
       data: {
+        token,
         id: user.id,
         name: user.name,
         email: user.email,
@@ -58,10 +75,9 @@ export const signUp = async (req, res, next) => {
   }
 };
 
-
+// ================= SIGN IN =================
 export const signIn = async (req, res, next) => {
   try {
-    // ================= VALIDATION =================
     const validationResult = signInSchema.safeParse(req.body);
 
     if (!validationResult.success) {
@@ -75,9 +91,13 @@ export const signIn = async (req, res, next) => {
     let { email, password } = validationResult.data;
     email = email.toLowerCase().trim();
 
-    // ================= USER CHECK =================
-    const user = await userService.findByEmail(email);
-
+    // 🔹 Fetch user
+    const userResult = await db
+      .select()
+      .from(User)
+      .where(eq(User.email, email))
+      .limit(1);
+    const user = userResult[0];
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -85,7 +105,6 @@ export const signIn = async (req, res, next) => {
       });
     }
 
-    // Optional: account status check
     if (user.isActive === false) {
       return res.status(403).json({
         success: false,
@@ -93,9 +112,7 @@ export const signIn = async (req, res, next) => {
       });
     }
 
-    // ================= PASSWORD CHECK =================
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -103,17 +120,12 @@ export const signIn = async (req, res, next) => {
       });
     }
 
-    // ================= TOKEN =================
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-      },
+    const token=jwt.sign(
+      {id:user.id,email:user.email,password:user.password},
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      {expiresIn:'1d'}
     );
-
-    // ================= RESPONSE =================
+cookies.set(res,'token',token);
     return res.status(200).json({
       success: true,
       message: "Login successful",

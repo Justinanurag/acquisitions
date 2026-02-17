@@ -1,5 +1,3 @@
-import { error } from "winston";
-
 export const formatValidationError = (error) => {
   // Default response
   const formatted = {
