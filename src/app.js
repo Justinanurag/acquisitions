@@ -4,7 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import auth from "./routes/auth.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/users.routers.js"
 import { arcjetMiddleware } from "./config/arcjet.js";
 
 const app = express();
@@ -32,7 +33,8 @@ app.use(
 app.use(arcjetMiddleware);
 
 // ✅ use auth routes
-app.use("/api/auth", auth);
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
