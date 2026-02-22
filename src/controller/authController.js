@@ -57,7 +57,7 @@ export const signUp = async (req, res, next) => {
       {expiresIn:'1d'}
     );
 
-    cookies.set(res,'token',token);
+    // res.cookies.set(res,'token',token);
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -125,7 +125,7 @@ export const signIn = async (req, res, next) => {
       process.env.JWT_SECRET,
       {expiresIn:'1d'}
     );
-cookies.set(res,'token',token);
+// res.cookies.set(res,'token',token);
     return res.status(200).json({
       success: true,
       message: "Login successful",
