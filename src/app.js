@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import auth from "./routes/auth.routes.js";
+import { arcjetMiddleware } from "./config/arcjet.js";
 
 const app = express();
 
@@ -26,6 +27,9 @@ app.use(
     stream: { write: (message) => logger.info(message.trim()) },
   })
 );
+
+// Arcjet protection (rate limiting, bot detection, shield)
+app.use(arcjetMiddleware);
 
 // ✅ use auth routes
 app.use("/api/auth", auth);
